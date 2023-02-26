@@ -2,6 +2,10 @@ const {User} = require('../service/schemas/users')
 const {hash, compare} = require('./bcrypt')
 const jwt = require('jsonwebtoken');
 const process  = require('process');
+const gravatar = require('gravatar');
+const fs = require('fs/promises');
+const path = require('path')
+const Jimp = require("jimp");
 
 const addUserController = async (body, res) => {
     try{
@@ -21,6 +25,8 @@ const addUserController = async (body, res) => {
     const user = await User({  email, subscription });
     const hashPass = await hash(password)
     user.password = hashPass
+    const avatar = gravatar.url(email, {protocol: 'https', s: '100'})
+    user.avatarURL = avatar
     await user.save();
     return res.status(201).json({
         user: {
@@ -135,11 +141,39 @@ const patchUserSubscription = async(req, res) => {
     }
 }
 
+const patchUserAvatarController = async(req,res) => {
+    const {file} = req
+
+    try{
+        
+        if(!file.path){
+            res.status(401).json({ message: 'Not authorized' })
+        }
+        const oldPath = path.join(__dirname, "../tmp", req.file.filename)
+        const newPath = path.join(__dirname, "../public/avatars", req.file.filename)
+
+        const image = await Jimp.read(file.path)
+        await image.resize(250, 250)
+        await image.writeAsync(oldPath)
+        
+        await fs.rename(oldPath, newPath)
+
+        const userAvatar = await User.findOneAndUpdate(req.user._id, {avatarURL: newPath}, { new: true } )
+
+        res.json({avatarURL: userAvatar.avatarURL})
+    }catch(err){
+        await fs.unlink(req.file.path)
+        res.status(400).json({ message: err.message })
+    }
+
+}
+
 module.exports = {
     addUserController,
     findUserController,
     getAllUsersController,
     logoutUsersController,
     getCurrentUserController,
-    patchUserSubscription
+    patchUserSubscription,
+    patchUserAvatarController
   }
