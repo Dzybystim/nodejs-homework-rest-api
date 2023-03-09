@@ -32,5 +32,7 @@ router.patch('/', auth, (req,res) => usersController.patchUserSubscription(req,r
 
 router.patch('/avatars', [auth, uploadMiddleware.single('avatar')], (req,res) => usersController.patchUserAvatarController(req,res))
 
+router.get('/verify/:verificationToken', (req, res) => usersController.findVerifyUserController(req, res))
+
 
 module.exports = router

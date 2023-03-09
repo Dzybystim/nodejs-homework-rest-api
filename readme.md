@@ -3,6 +3,7 @@
 DB_URI = 'mongodb+srv://Dzybystim:42aseper@cluster0.zai00qq.mongodb.net/db-contacts'
 PORT = '7000'
 SECRET = 'verySecret'
+SENDGRID_API_KEY='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'
 
 
 ## GoIT Node.js Course Template Homework
