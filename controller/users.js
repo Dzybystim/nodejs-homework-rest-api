@@ -12,6 +12,7 @@ const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 
+
 const addUserController = async (body, res) => {
     try{
     const {password, email, subscription} = body;
@@ -21,7 +22,7 @@ const addUserController = async (body, res) => {
     {return res.status(409).json({message: 'Email in use'})}
 
     if(!password) 
-    {return res.status(400).json({ message: "Not valid email" })}
+    {return res.status(400).json({ message: "Not valid password" })}
 
     if(!email)
     {return res.status(400).json({ message: "Not valid email" })}
@@ -43,6 +44,8 @@ const addUserController = async (body, res) => {
         text: `Please, confirm your email address  http://localhost:7000/api/users/verify/${code}`,
         html: `Please, <a href="http://localhost:7000/api/users/verify/${code}">confirm</a> your email address`,
       }
+
+
       await sgMail.send(msg);
 
     return res.status(201).json({
@@ -209,6 +212,42 @@ const findVerifyUserController = async(req,res) => {
 
 }
 
+const resendLetterVerify = async(req, res) => {
+    const {email} = req.body
+
+    if(!email) {
+        return res.status(400).json({ message: "missing required field email" }) 
+    }
+
+    try{
+    const user = await User.findOne({email})
+
+    if(!user) {
+        return res.status(400).json({ message: "This email is not registered" })
+    }
+    
+    if(user.verify === true){
+        return res.status(400).json({ message: "Verification has already been passed" })
+    }
+    
+    const msg = {
+        to: email,
+        from: 'testprimerov@gmail.com', 
+        subject: 'Test send message',
+        text: `Please, confirm your email address  http://localhost:7000/api/users/verify/${user.verificationToken}`,
+        html: `Please, <a href="http://localhost:7000/api/users/verify/${user.verificationToken}">confirm</a> your email address`,
+      }
+
+      await sgMail.send(msg);
+
+      return res.status(200).json({ message: "Verification email sent"})
+
+    }catch(err){
+        res.status(400).json({ message: err.message })
+    }
+
+}
+
 module.exports = {
     addUserController,
     findUserController,
@@ -217,5 +256,6 @@ module.exports = {
     getCurrentUserController,
     patchUserSubscription,
     patchUserAvatarController,
-    findVerifyUserController
+    findVerifyUserController,
+    resendLetterVerify
   }

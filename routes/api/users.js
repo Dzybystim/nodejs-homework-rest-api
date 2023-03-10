@@ -34,5 +34,7 @@ router.patch('/avatars', [auth, uploadMiddleware.single('avatar')], (req,res) =>
 
 router.get('/verify/:verificationToken', (req, res) => usersController.findVerifyUserController(req, res))
 
+router.post('/verify', (req, res) => usersController.resendLetterVerify(req, res))
+
 
 module.exports = router
