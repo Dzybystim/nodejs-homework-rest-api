@@ -4,7 +4,6 @@ DB_URI = 'mongodb+srv://Dzybystim:42aseper@cluster0.zai00qq.mongodb.net/db-conta
 PORT = '7000'
 SECRET = 'verySecret'
 
-
 ## GoIT Node.js Course Template Homework
 
 Виконайте форк цього репозиторію для виконання домашніх завдань (2-6)

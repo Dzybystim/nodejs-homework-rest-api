@@ -6,6 +6,12 @@ const gravatar = require('gravatar');
 const fs = require('fs/promises');
 const path = require('path')
 const Jimp = require("jimp");
+const { v4: uuidv4 } = require('uuid')
+const sgMail = require('@sendgrid/mail');
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+
 
 const addUserController = async (body, res) => {
     try{
@@ -16,7 +22,7 @@ const addUserController = async (body, res) => {
     {return res.status(409).json({message: 'Email in use'})}
 
     if(!password) 
-    {return res.status(400).json({ message: "Not valid email" })}
+    {return res.status(400).json({ message: "Not valid password" })}
 
     if(!email)
     {return res.status(400).json({ message: "Not valid email" })}
@@ -27,7 +33,21 @@ const addUserController = async (body, res) => {
     user.password = hashPass
     const avatar = gravatar.url(email, {protocol: 'https', s: '100'})
     user.avatarURL = avatar
+    const code = uuidv4()
+    user.verificationToken = code
     await user.save();
+
+    const msg = {
+        to: email,
+        from: 'testprimerov@gmail.com', 
+        subject: 'Test send message',
+        text: `Please, confirm your email address  http://localhost:7000/api/users/verify/${code}`,
+        html: `Please, <a href="http://localhost:7000/api/users/verify/${code}">confirm</a> your email address`,
+      }
+
+
+      await sgMail.send(msg);
+
     return res.status(201).json({
         user: {
             email,
@@ -55,7 +75,11 @@ const findUserController = async (body,res) => {
     if (!exists)
     {return res.status(401).json({ message: "Email or password is wrong" })}
 
-    const user = await User.findOne({email}).lean()
+    const user = await User.findOne({email, verify: true}).lean()
+
+    if (!user){
+        return res.status(401).json({ message: "Email not verify" })
+    }
     
     const passed = await compare(password, user.password)
 
@@ -64,7 +88,7 @@ const findUserController = async (body,res) => {
 
     const token = jwt.sign({ id: user._id }, process.env.SECRET, { expiresIn: '1d' });
 
-    const updatedUser = await User.findOneAndUpdate(user._id, {token}, { new: true })
+    const updatedUser = await User.findOneAndUpdate({_id: user._id, verify: true}, {token}, { new: true })
 
     return res.status(200).json({
         token: updatedUser.token,
@@ -168,6 +192,62 @@ const patchUserAvatarController = async(req,res) => {
 
 }
 
+const findVerifyUserController = async(req,res) => {
+    const token = req.params.verificationToken
+
+    try{
+        const user = await User.findOneAndUpdate({verificationToken: token}, {verificationToken: null, verify: true})
+
+        if(!user){
+            return res.status(404).json({ message: 'User not found' })
+        }
+        
+        return res.status(200).json({
+            message: 'Verification successful'
+        })
+
+    }catch(err){
+        res.status(400).json({ message: err.message })
+    }
+
+}
+
+const resendLetterVerify = async(req, res) => {
+    const {email} = req.body
+
+    if(!email) {
+        return res.status(400).json({ message: "missing required field email" }) 
+    }
+
+    try{
+    const user = await User.findOne({email})
+
+    if(!user) {
+        return res.status(400).json({ message: "This email is not registered" })
+    }
+    
+    if(user.verify === true){
+        return res.status(400).json({ message: "Verification has already been passed" })
+    }
+    
+    const msg = {
+        to: email,
+        from: 'testprimerov@gmail.com', 
+        subject: 'Test send message',
+        text: `Please, confirm your email address  http://localhost:7000/api/users/verify/${user.verificationToken}`,
+        html: `Please, <a href="http://localhost:7000/api/users/verify/${user.verificationToken}">confirm</a> your email address`,
+      }
+
+      await sgMail.send(msg);
+
+      return res.status(200).json({ message: "Verification email sent"})
+
+    }catch(err){
+        res.status(400).json({ message: err.message })
+    }
+
+}
+
 module.exports = {
     addUserController,
     findUserController,
@@ -175,5 +255,7 @@ module.exports = {
     logoutUsersController,
     getCurrentUserController,
     patchUserSubscription,
-    patchUserAvatarController
+    patchUserAvatarController,
+    findVerifyUserController,
+    resendLetterVerify
   }
